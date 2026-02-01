@@ -1,0 +1,60 @@
+{
+  "name": "ayecnse-robot-control",
+  "version": "1.0.0",
+  "description": "Multi-modal control interface for differential drive robots with rhythmic dance synchronization",
+  "main": "src/ayecnse-robot-control.js",
+  "author": "Abhishek Choudhary",
+  "license": "SEE LICENSE IN LICENSE.txt",
+  "homepage": "https://icansee.life",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ayecnse/robot-control"
+  },
+  "keywords": [
+    "robotics",
+    "differential-drive",
+    "arduino",
+    "esp32",
+    "physical-ai",
+    "bci",
+    "rhythmic-control",
+    "tala",
+    "dance",
+    "digital-twin",
+    "ayecnse",
+    "educational-robotics",
+    "cognitive-systems",
+    "hci",
+    "joystick",
+    "motor-control",
+    "l293d",
+    "l298n"
+  ],
+  "scripts": {
+    "start": "python -m http.server 8080",
+    "test": "echo \"No tests specified yet\" && exit 0"
+  },
+  "devDependencies": {},
+  "dependencies": {},
+  "files": [
+    "index.html",
+    "src/",
+    "examples/",
+    "docs/",
+    "README.md",
+    "LICENSE.txt"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "browserslist": [
+    "Chrome >= 90",
+    "Firefox >= 88",
+    "Safari >= 14",
+    "Edge >= 90"
+  ],
+  "config": {
+    "defaultPort": 8080,
+    "robotTimeout": 5000
+  }
+}

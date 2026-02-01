@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+  AyeCNSe Robot Control Interface
+  Copyright (c) 2026 Abhishek Choudhary
+  
+  Part of the AyeCNSe Physical AI Platform
+  https://icansee.life
+  
+  This interface provides multi-modal control for differential drive robots:
+  - Manual joystick control (proportional)
+  - Keyboard control
+  - Rhythmic dance mode (tāla-aware audio synchronization)
+  - Digital twin visualization
+  
+  Supports: Arduino UNO, ESP32, L293D, L298N motor controllers
+-->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no">
+    <meta name="author" content="Abhishek Choudhary">
+    <meta name="description" content="AyeCNSe Robot Control Interface - Physical AI Platform">
+    <title>AyeCNSe | AyeAM Champy - Rhythmic Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        /*
+         * AyeCNSe Robot Control Interface - Styles
+         * Copyright (c) 2026 Abhishek Choudhary
+         */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #00ff88;
+            --secondary: #0088ff;
+            --accent: #ff0088;
+            --dark: #0a0e27;
+            --darker: #050816;
+            --grid: rgba(0, 255, 136, 0.1);
+        }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--darker);
+            color: var(--primary);
+            overflow: hidden;
+            height: 100vh;
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+                              linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridPulse 4s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes gridPulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.6; }
+        }
+        .container {
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 280px 1fr 400px;
+            grid-template-rows: 70px 1fr;
+            gap: 15px;
+            padding: 15px;
+            position: relative;
+            z-index: 1;
+        }
+        .header {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 25px;
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(0, 136, 255, 0.1));
+            border: 2px solid var(--primary);
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            position: relative;
+            animation: logoRotate 4s linear infinite;
+        }
+        @keyframes logoRotate {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(180deg); }
+        }
+        .logo-icon::before, .logo-icon::after {
+            content: '';
+            position: absolute;
+            border: 2px solid var(--primary);
+        }
+        .logo-icon::before {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+        }
+        .logo-icon::after {
+            width: 60%;
+            height: 60%;
+            top: 20%;
+            left: 20%;
+            border-radius: 20%;
+            transform: rotate(45deg);
+            border-color: var(--secondary);
+        }
+        .logo-text {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 24px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .settings-btn {
+            width: 40px;
+            height: 40px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 2px solid var(--primary);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s;
+        }
+        .settings-btn:hover {
+            background: rgba(0, 255, 136, 0.2);
+            transform: rotate(90deg);
+        }
+        .status {
+            display: flex;
+            gap: 15px;
+        }
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        .status-label {
+            font-size: 11px;
+            opacity: 0.7;
+            text-transform: uppercase;
+        }
+        .status-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: linear-gradient(135deg, rgba(10, 14, 39, 0.95), rgba(5, 8, 22, 0.95));
+            border: 2px solid var(--primary);
+            border-radius: 15px;
+            padding: 30px;
+            width: 450px;
+            max-width: 90vw;
+            box-shadow: 0 0 50px rgba(0, 255, 136, 0.5);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .modal-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .close-btn {
+            width: 30px;
+            height: 30px;
+            background: transparent;
+            border: 2px solid var(--accent);
+            border-radius: 5px;
+            color: var(--accent);
+            cursor: pointer;
+            font-size: 18px;
+        }
+        .close-btn:hover {
+            background: var(--accent);
+            color: var(--darker);
+        }
+        .setting-row {
+            margin-bottom: 18px;
+        }
+        .setting-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            opacity: 0.8;
+            margin-bottom: 6px;
+            display: block;
+        }
+        select, input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--grid);
+            color: var(--primary);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 14px;
+        }
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        .dance-panel {
+            background: linear-gradient(135deg, rgba(10, 14, 39, 0.9), rgba(5, 8, 22, 0.9));
+            border: 2px solid var(--accent);
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .panel-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+        .dance-btn {
+            padding: 16px;
+            background: linear-gradient(135deg, var(--accent), var(--primary));
+            border: 2px solid var(--primary);
+            border-radius: 8px;
+            color: var(--darker);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .dance-btn:hover { transform: scale(1.03); }
+        .dance-btn.active {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            animation: dancePulse 1s ease-in-out infinite;
+        }
+        @keyframes dancePulse {
+            0%, 100% { box-shadow: 0 0 15px rgba(0, 255, 136, 0.5); }
+            50% { box-shadow: 0 0 30px rgba(0, 255, 136, 1); }
+        }
+        .audio-visualizer {
+            height: 70px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--grid);
+            border-radius: 5px;
+        }
+        .visualizer-canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .beat-indicator {
+            width: 100%;
+            height: 3px;
+            background: transparent;
+            border-radius: 2px;
+            transition: all 0.1s;
+        }
+        .beat-indicator.active {
+            background: var(--primary);
+            box-shadow: 0 0 15px var(--primary);
+        }
+        .robot-display {
+            background: linear-gradient(135deg, rgba(10, 14, 39, 0.9), rgba(5, 8, 22, 0.9));
+            border: 2px solid var(--secondary);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: inset 0 0 30px rgba(0, 136, 255, 0.2);
+        }
+        .robot-canvas {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .robot {
+            width: 70px;
+            height: 100px;
+            position: relative;
+            transition: transform 0.05s linear;
+        }
+        .robot-body {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 12px;
+            box-shadow: 0 0 25px rgba(0, 255, 136, 0.5);
+        }
+        .robot-head {
+            width: 40px;
+            height: 25px;
+            background: var(--darker);
+            border: 2px solid var(--primary);
+            border-radius: 6px;
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .robot-eye {
+            width: 7px;
+            height: 7px;
+            background: var(--primary);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 0 6px var(--primary);
+        }
+        .robot-eye.left { left: 8px; }
+        .robot-eye.right { right: 8px; }
+        .robot-wheel {
+            width: 20px;
+            height: 20px;
+            background: var(--darker);
+            border: 2px solid var(--accent);
+            border-radius: 50%;
+            position: absolute;
+            bottom: -6px;
+            animation: wheelSpin 0.15s linear infinite paused;
+        }
+        .robot-wheel.left { left: 6px; }
+        .robot-wheel.right { right: 6px; }
+        .robot.moving .robot-wheel {
+            animation-play-state: running;
+        }
+        @keyframes wheelSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .joystick-container {
+            background: linear-gradient(135deg, rgba(10, 14, 39, 0.9), rgba(5, 8, 22, 0.9));
+            border: 2px solid var(--primary);
+            border-radius: 10px;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .joystick-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+        }
+        .joystick-base {
+            width: 180px;
+            height: 180px;
+            background: radial-gradient(circle, rgba(0, 136, 255, 0.2), transparent);
+            border: 2px solid var(--secondary);
+            border-radius: 50%;
+            position: relative;
+        }
+        .joystick-base::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--grid);
+        }
+        .joystick-base::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: var(--grid);
+        }
+        .joystick-stick {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: 2px solid var(--primary);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            touch-action: none;
+        }
+        .joystick-stick:active {
+            cursor: grabbing;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.9);
+        }
+        .joystick-stick::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 18px;
+            height: 18px;
+            background: var(--darker);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .command-display {
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid var(--secondary);
+            border-radius: 10px;
+            padding: 12px;
+            max-height: 180px;
+        }
+        .command-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            color: var(--secondary);
+        }
+        .command-log {
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            line-height: 1.4;
+            max-height: 130px;
+            overflow-y: auto;
+        }
+        .command-entry {
+            opacity: 0;
+            animation: fadeIn 0.3s forwards;
+        }
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+        .command-entry.sent { color: var(--primary); }
+        .command-entry.response { color: var(--secondary); padding-left: 8px; }
+        .direction-indicator {
+            position: absolute;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--grid);
+            transition: all 0.2s;
+        }
+        .direction-indicator.active {
+            color: var(--primary);
+            text-shadow: 0 0 8px var(--primary);
+            transform: scale(1.15);
+        }
+        .dir-up { top: -25px; left: 50%; transform: translateX(-50%); }
+        .dir-down { bottom: -25px; left: 50%; transform: translateX(-50%); }
+        .dir-left { left: -35px; top: 50%; transform: translateY(-50%); }
+        .dir-right { right: -35px; top: 50%; transform: translateY(-50%); }
+        .dir-up.active { transform: translateX(-50%) scale(1.15); }
+        .dir-down.active { transform: translateX(-50%) scale(1.15); }
+        .dir-left.active { transform: translateY(-50%) scale(1.15); }
+        .dir-right.active { transform: translateY(-50%) scale(1.15); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon"></div>
+                <div class="logo-text">AyeCNSe | AyeAM Champy</div>
+            </div>
+            <div class="header-controls">
+                <div class="status">
+                    <div class="status-item">
+                        <div class="status-label">Seq</div>
+                        <div class="status-value" id="seqDisplay">0</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-label">Status</div>
+                        <div class="status-value" id="statusDisplay">READY</div>
+                    </div>
+                </div>
+                <button class="settings-btn" onclick="openSettings()">⚙️</button>
+            </div>
+        </div>
+
+        <div class="dance-panel">
+            <div class="panel-title">🎵 Rhythmic Dance</div>
+            <button class="dance-btn" id="rhythmicDanceBtn" onclick="toggleRhythmicDance()">
+                Start Rhythmic Dance
+            </button>
+            <div class="beat-indicator" id="beatIndicator"></div>
+            <div class="audio-visualizer">
+                <canvas class="visualizer-canvas" id="visualizerCanvas"></canvas>
+            </div>
+            <div style="font-size: 10px; opacity: 0.7; text-align: center; margin-top: 8px;">
+                Enable microphone for tāla-aware movement
+            </div>
+        </div>
+
+        <div class="robot-display">
+            <div class="robot-canvas">
+                <div class="robot" id="robot">
+                    <div class="robot-head">
+                        <div class="robot-eye left"></div>
+                        <div class="robot-eye right"></div>
+                    </div>
+                    <div class="robot-body"></div>
+                    <div class="robot-wheel left"></div>
+                    <div class="robot-wheel right"></div>
+                </div>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <div class="joystick-container">
+                <div class="joystick-title">Manual Control</div>
+                <div class="joystick-base" id="joystickBase">
+                    <div class="joystick-stick" id="joystickStick"></div>
+                    <div class="direction-indicator dir-up">FWD</div>
+                    <div class="direction-indicator dir-down">BACK</div>
+                    <div class="direction-indicator dir-left">LEFT</div>
+                    <div class="direction-indicator dir-right">RIGHT</div>
+                </div>
+            </div>
+            <div class="command-display">
+                <div class="command-title">Command Log</div>
+                <div class="command-log" id="commandLog">
+                    <div class="command-entry">System ready</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay" onclick="closeSettingsIfBackdrop(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="modal-title">⚙️ Settings</div>
+                <button class="close-btn" onclick="closeSettings()">✕</button>
+            </div>
+            <div class="setting-row">
+                <label class="setting-label">Connection Mode</label>
+                <select id="mode" onchange="updateMode()">
+                    <option value="same">Same Origin</option>
+                    <option value="custom">Custom Host</option>
+                </select>
+            </div>
+            <div class="setting-row" id="customHostRow" style="display:none;">
+                <label class="setting-label">Base URL</label>
+                <input type="text" id="customHost" value="http://localhost:8080">
+            </div>
+            <div class="setting-row">
+                <label class="setting-label">Duration (ms)</label>
+                <input type="number" id="duration" value="200">
+            </div>
+            <div class="setting-row">
+                <label class="setting-label">PWM Speed</label>
+                <input type="number" id="pwm" value="255">
+            </div>
+        </div>
+    </div>
+
+    <script src="src/ayecnse-robot-control.js"></script>
+</body>
+</html>
